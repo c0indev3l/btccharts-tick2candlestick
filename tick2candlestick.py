@@ -277,6 +277,7 @@ class ApiRequestBitcoinchartsGetTicks:
     def to_hdf5(self):
         """Output HDF5 file"""
         filename = self.output_filename('h5')
+        #self.dataframe_out.to_hdf(filename,'table',append=True)
         print("Save to HDF5 file as {filename}".format(filename=filename))
         try:
             os.remove(filename) # remove h5 file to avoid it to inflate
