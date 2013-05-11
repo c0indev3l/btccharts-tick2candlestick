@@ -137,7 +137,9 @@ class ApiRequestBitcoinchartsGetTicks:
             pd.to_datetime(self.dataframe['TIMESTAMP']*int(1e9))
         #print(self.dataframe.dtypes)
         self.dataframe = \
-            self.dataframe.set_index('TIMESTAMP').astype('float64')        
+            self.dataframe.set_index('TIMESTAMP').astype('float64')
+            
+        self.dataframe['TICK_VOL'] = 1
 
         #self.dataframe = self.dataframe.set_index('TIMESTAMP')
         #self.dataframe['TIMESTAMP'] = pd.DatetimeIndex(
@@ -189,7 +191,12 @@ class ApiRequestBitcoinchartsGetTicks:
         
         self.dataframe_out['VOL'] = self.dataframe['VOL']\
             .resample(timeframe_pd, how='sum')
-                
+        
+        self.dataframe_out['TICK_VOL'] = self.dataframe['TICK_VOL']\
+            .resample(timeframe_pd, how='sum')
+        self.dataframe_out['TICK_VOL'] = self.dataframe_out['TICK_VOL'].fillna(0)
+        # or .fillna(1)
+        
         self.dataframe_out = self.dataframe_out.rename(
             columns={
                 'open': 'OPEN',
@@ -210,43 +217,37 @@ class ApiRequestBitcoinchartsGetTicks:
         self.dataframe_out['HIGH'] = self.dataframe_out['HIGH']\
             .fillna(self.dataframe_out['CLOSE'])
 
-        for col in ['OPEN', 'HIGH', 'LOW', 'CLOSE', 'VOL']:
+        for col in ['OPEN', 'HIGH', 'LOW', 'CLOSE', 'VOL', 'TICK_VOL']:
             self.dataframe_out[col] = self.dataframe_out[col].map(int)
         
         #self.dataframe_out.index = self.dataframe_out.index.map(lambda x: (x.to_pydatetime()))
+        self.dataframe_out['TIMESTAMP'] = self.dataframe_out.index
+        self.dataframe_out['TIMESTAMP'] = self.dataframe_out.index.map(lambda x: int(x.to_pydatetime().strftime('%s')))
+
+        print("Reorder columns")
+        self.dataframe_out = self.dataframe_out.reindex_axis(['TIMESTAMP', 'OPEN', 'HIGH', 'LOW', 'CLOSE', 'VOL', 'TICK_VOL'], axis=1)
         
         print("="*100)
         print("Candlestick data")
         self.pretty_print_dataframe(self.dataframe_out)
         print("="*100)
         
-        if ARGS.tocsv:
-            self.to_csv()
+        self.output_file()
+        
+    def output_file(self):
+        for to_format in ARGS.to.split(','):
+            to_format = to_format.lower()
             
-        if ARGS.toxls:
-            self.to_excel()
-
-    def to_excel(self):
-        """Output excel file"""
-        ext = 'xls'
-        dt_format = '%Y%m%d%H%M'
-        dt1_str = self.dataframe_out.index[0]\
-            .to_pydatetime().strftime(dt_format)
-        dt2_str = self.dataframe_out.index[-1]\
-            .to_pydatetime().strftime(dt_format)
-        filename = os.path.join(self.basepath,
-            "data_out/{symbol}-{timeframe}.{ext}".format(
-            symbol = self.symbol.longname(),
-            timeframe = self.timeframe.name(),
-            dt1 = dt1_str,
-            dt2 = dt2_str,
-            ext = ext))
-        print("Save to Excel file as {filename}".format(filename=filename))
-        self.dataframe_out.to_excel(filename)
-
-    def to_csv(self):
-        """Output csv file"""
-        ext = 'csv'
+            if to_format == 'csv':
+                self.to_csv()
+            elif to_format == 'xls':
+                self.to_xls()
+            elif to_format == 'hdf5':
+                self.to_hdf5()
+            else:
+                print("File format '{to_format}' is not supported".format(to_format=to_format))
+                
+    def output_filename(self, ext):
         dt_format = '%Y%m%d%H%M'
         dt1_str = self.dataframe_out.index[0]\
             .to_pydatetime().strftime(dt_format)
@@ -259,9 +260,31 @@ class ApiRequestBitcoinchartsGetTicks:
             dt1 = dt1_str,
             dt2 = dt2_str,
             ext = ext))
-        print("Save to CSV file as {filename}".format(filename=filename))
-        self.dataframe_out.to_csv(filename)
+        return(filename)        
 
+    def to_xls(self):
+        """Output excel file"""
+        filename = self.output_filename('xls')
+        print("Save to Excel file as {filename}".format(filename=filename))
+        self.dataframe_out.to_excel(filename, index=False)
+
+    def to_csv(self):
+        """Output CSV file"""
+        filename = self.output_filename('xls')
+        print("Save to CSV file as {filename}".format(filename=self.output_filename('csv')))
+        self.dataframe_out.to_csv(filename, index=False)
+
+    def to_hdf5(self):
+        """Output HDF5 file"""
+        filename = self.output_filename('h5')
+        print("Save to HDF5 file as {filename}".format(filename=filename))
+        try:
+            os.remove(filename) # remove h5 file to avoid it to inflate
+        except:
+            print("Can't remove {filename} (maybe this file doesn't exist)".format(filename=filename))
+        store = pd.HDFStore(filename, complevel=9, complib='blosc')
+        store.append('df', self.dataframe_out)
+        store.close()
 
 if __name__ == "__main__":
     PARSER = argparse.ArgumentParser(description='Use the following parameters')
@@ -287,11 +310,8 @@ please don't use this too often!")
         help="use this flag to set market symbol (mtgox|BTC/USD)",
         default='mtgox|BTC/USD')
 
-    PARSER.add_argument('--tocsv', action="store_true",
-        help="use this flag to output CSV file")
-
-    PARSER.add_argument('--toxls', action="store_true",
-        help="use this flag to output XLS file")
+    PARSER.add_argument('--to', action="store",
+        help="use this flag to set output file ('csv', 'xls', 'hdf5', 'csv,hdf5')")
 
         
     ARGS = PARSER.parse_args()
@@ -310,7 +330,7 @@ please don't use this too often!")
         if ARGS.dt2 < ARGS.dt1:
             raise(Exception('dt2 < dt1 !'))
             
-    print(ARGS.dt1)
+    #print(ARGS.dt1)
     
     DATATICKS = ApiRequestBitcoinchartsGetTicks(ARGS)
     DATATICKS.update()
