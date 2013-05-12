@@ -222,7 +222,17 @@ class ApiRequestBitcoinchartsGetTicks:
         
         #self.dataframe_out.index = self.dataframe_out.index.map(lambda x: (x.to_pydatetime()))
         self.dataframe_out['TIMESTAMP'] = self.dataframe_out.index
-        self.dataframe_out['TIMESTAMP'] = self.dataframe_out.index.map(lambda x: int(x.to_pydatetime().strftime('%s')))
+        #self.dataframe_out['TIMESTAMP'] = self.dataframe_out.index.map(lambda x: int(x.to_pydatetime().strftime('%s')))
+        epoch = datetime.datetime(1970, 1, 1)
+        self.dataframe_out['TIMESTAMP'] = self.dataframe_out.index.map(lambda x: int((x - epoch).total_seconds()))
+        #self.dataframe_out['TIMESTAMP'] = self.dataframe_out.index.map(lambda x: int(x.to_pydatetime().strftime('%s')))
+        # see http://delorean.readthedocs.org/en/latest/quickstart.html
+        # d.epoch()
+        # or http://stackoverflow.com/questions/6999726/python-getting-millis-since-epoch-from-datetime
+        #   epoch = datetime.datetime.utcfromtimestamp(0)
+        #   delta = dt - epoch
+        #   delta.total_seconds()
+        # http://stackoverflow.com/questions/8777753/converting-datetime-date-to-utc-timestamp-in-python/8778548#8778548
 
         print("Reorder columns")
         self.dataframe_out = self.dataframe_out.reindex_axis(['TIMESTAMP', 'OPEN', 'HIGH', 'LOW', 'CLOSE', 'VOL', 'TICK_VOL'], axis=1)
@@ -235,17 +245,18 @@ class ApiRequestBitcoinchartsGetTicks:
         self.output_file()
         
     def output_file(self):
-        for to_format in ARGS.to.split(','):
-            to_format = to_format.lower()
+        if ARGS.to != None:
+            for to_format in ARGS.to.split(','):
+                to_format = to_format.lower()
             
-            if to_format == 'csv':
-                self.to_csv()
-            elif to_format == 'xls':
-                self.to_xls()
-            elif to_format == 'hdf5':
-                self.to_hdf5()
-            else:
-                print("File format '{to_format}' is not supported".format(to_format=to_format))
+                if to_format == 'csv':
+                    self.to_csv()
+                elif to_format == 'xls':
+                    self.to_xls()
+                elif to_format == 'hdf5':
+                    self.to_hdf5()
+                else:
+                    print("File format '{to_format}' is not supported".format(to_format=to_format))
                 
     def output_filename(self, ext):
         dt_format = '%Y%m%d%H%M'
@@ -270,8 +281,8 @@ class ApiRequestBitcoinchartsGetTicks:
 
     def to_csv(self):
         """Output CSV file"""
-        filename = self.output_filename('xls')
-        print("Save to CSV file as {filename}".format(filename=self.output_filename('csv')))
+        filename = self.output_filename('csv')
+        print("Save to CSV file as {filename}".format(filename=filename))
         self.dataframe_out.to_csv(filename, index=False)
 
     def to_hdf5(self):
