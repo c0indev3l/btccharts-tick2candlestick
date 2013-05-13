@@ -174,14 +174,14 @@ class ApiRequestBitcoinchartsGetTicks:
             TF.M5: '5min',
             TF.M15: '15min',
             TF.M30: '30min',
-            TF.H1: 'H1',
-            TF.H2: 'H2',
-            TF.H4: 'H4',
-            TF.H6: 'H6',
-            TF.H12: 'H12',
-            TF.D1: 'D1',
-            TF.W1: 'W1',
-            TF.MN: 'M',
+            TF.H1: '1H',
+            TF.H2: '2H',
+            TF.H4: '4H',
+            TF.H6: '6H',
+            TF.H12: '12H',
+            TF.D1: '1D',
+            TF.W1: '1W',
+            TF.MN: '1M',
         }
         
         timeframe_pd = timeframes_pandas_names[self.timeframe]
