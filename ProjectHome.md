@@ -1,0 +1,1 @@
+A script to download tick data from Bitcoincharts and output CSV file for various timeframe (M1, M5, M15, ... ) to feed trading software and to backtest strategies
